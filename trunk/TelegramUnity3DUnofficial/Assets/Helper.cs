@@ -65,6 +65,19 @@ public static class Helper
 			return null;
 		}
 	}
+	public static byte[] GetSha1(byte[] pData)
+	{
+		SHA1 pSha1 = new SHA1 ();
+		return pSha1.ComputeHash (pData);
+	}
+	public static byte[] GetEncryptedFromPublicRSA(byte[] pData, byte[] pPublicKey)
+	{
+		RSACryptoServiceProvider pRsaKey = new RSACryptoServiceProvider (256);
+		RSAParameters pParams;
+		pParams.Modulus = pPublicKey;
+		pRsaKey.ImportParameters (pParams);
+		return pRsaKey.Encrypt (pData, false);
+	}
 	private static TimeSpan UnixTimeSpan()
 	{
 		DateTime CetTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.Now, "UTC");
