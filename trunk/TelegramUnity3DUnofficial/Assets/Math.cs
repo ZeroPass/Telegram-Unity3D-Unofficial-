@@ -1616,7 +1616,7 @@ public static class Math
 		// Populates "this" with the specified amount of random bits
 		//***********************************************************************
 		
-		public void genRandomBits(int bits, Random rand)
+		public void genRandomBits(int bits, System.Random rand)
 		{
 			int dwords = bits >> 5;
 			int remBits = bits & 0x1F;
@@ -1725,7 +1725,7 @@ public static class Math
 			int bits = thisVal.bitCount();
 			BigInteger a = new BigInteger();
 			BigInteger p_sub1 = thisVal - (new BigInteger(1));
-			Random rand = new Random();
+			System.Random rand = new System.Random();
 			
 			for(int round = 0; round < confidence; round++)
 			{
@@ -1837,7 +1837,7 @@ public static class Math
 			
 			int bits = thisVal.bitCount();
 			BigInteger a = new BigInteger();
-			Random rand = new Random();
+			System.Random rand = new System.Random();
 			
 			for(int round = 0; round < confidence; round++)
 			{
@@ -1943,7 +1943,7 @@ public static class Math
 			BigInteger p_sub1 = thisVal - 1;
 			BigInteger p_sub1_shift = p_sub1 >> 1;
 			
-			Random rand = new Random();
+			System.Random rand = new System.Random();
 			
 			for(int round = 0; round < confidence; round++)
 			{
@@ -2048,7 +2048,7 @@ public static class Math
 					done = true;    // J(D, this) = 1
 				else
 				{
-					if(Jresult == 0 && Math.Abs(D) < thisVal)       // divisor found
+					if(Jresult == 0 && System.Math.Abs(D) < thisVal)       // divisor found
 						return false;
 					
 					if(dCount == 20)
@@ -2060,7 +2060,7 @@ public static class Math
 					}
 					
 					//Console.WriteLine(D);
-					D = (Math.Abs(D) + 2) * sign;
+					D = (System.Math.Abs(D) + 2) * sign;
 					sign = -sign;
 				}
 				dCount++;
@@ -2414,7 +2414,7 @@ public static class Math
 		// Generates a positive BigInteger that is probably prime.
 		//***********************************************************************
 		
-		public static BigInteger genPseudoPrime(int bits, int confidence, Random rand)
+		public static BigInteger genPseudoPrime(int bits, int confidence, System.Random rand)
 		{
 			BigInteger result = new BigInteger();
 			bool done = false;
@@ -2436,7 +2436,7 @@ public static class Math
 		// that gcd(number, this) = 1
 		//***********************************************************************
 		
-		public BigInteger genCoPrime(int bits, Random rand)
+		public BigInteger genCoPrime(int bits, System.Random rand)
 		{
 			bool done = false;
 			BigInteger result = new BigInteger();
@@ -2851,7 +2851,7 @@ public static class Math
 		
 		public static void MulDivTest(int rounds)
 		{
-			Random rand = new Random();
+			System.Random rand = new System.Random();
 			byte[] val = new byte[64];
 			byte[] val2 = new byte[64];
 			
@@ -2938,7 +2938,7 @@ public static class Math
 		
 		public static void RSATest(int rounds)
 		{
-			Random rand = new Random(1);
+			System.Random rand = new System.Random(1);
 			byte[] val = new byte[64];
 			
 			// private and public key
@@ -3004,7 +3004,7 @@ public static class Math
 		
 		public static void RSATest2(int rounds)
 		{
-			Random rand = new Random();
+			System.Random rand = new System.Random();
 			byte[] val = new byte[64];
 			
 			byte[] pseudoPrime1 = {
@@ -3100,7 +3100,7 @@ public static class Math
 		
 		public static void SqrtTest(int rounds)
 		{
-			Random rand = new Random();
+			System.Random rand = new System.Random();
 			for(int count = 0; count < rounds; count++)
 			{
 				// generate data of random length
@@ -3171,7 +3171,7 @@ public static class Math
 					Console.WriteLine();
 					limit += 100;
 				}
-				
+
 				BigInteger p = new BigInteger(-i);
 				
 				if(p.isProbablePrime())
@@ -3191,7 +3191,7 @@ public static class Math
 			Console.WriteLine("isProbablePrime() = " + bi1.isProbablePrime());
 			
 			Console.Write("\nGenerating 512-bits random pseudoprime. . .");
-			Random rand = new Random();
+			System.Random rand = new System.Random();
 			BigInteger prime = BigInteger.genPseudoPrime(512, 5, rand);
 			Console.WriteLine("\n" + prime);
 			

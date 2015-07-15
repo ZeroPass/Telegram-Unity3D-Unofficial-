@@ -3,6 +3,7 @@ using System.Collections;
 using System.Security.Cryptography;
 using System.Collections.Generic;
 using System;
+using System.IO;
 
 public static class Helper
 {
@@ -33,7 +34,7 @@ public static class Helper
 			return -1;
 		}
 	}
-	public static void SetData(out byte[] pData, byte[] pDataToSet, int pStart)
+	public static void SetData(ref byte[] pData, byte[] pDataToSet, int pStart)
 	{
 		int pEnd = pDataToSet.Length + pStart;
 		if(pEnd < pData.Length)
@@ -67,13 +68,15 @@ public static class Helper
 	}
 	public static byte[] GetSha1(byte[] pData)
 	{
-		SHA1 pSha1 = new SHA1 ();
-		return pSha1.ComputeHash (pData);
+		using (var sha = new SHA1CryptoServiceProvider())
+		{
+			return sha.ComputeHash(pData, 0, pData.Length);
+		}
 	}
 	public static byte[] GetEncryptedFromPublicRSA(byte[] pData, byte[] pPublicKey)
 	{
 		RSACryptoServiceProvider pRsaKey = new RSACryptoServiceProvider (256);
-		RSAParameters pParams;
+		RSAParameters pParams = new RSAParameters();
 		pParams.Modulus = pPublicKey;
 		pRsaKey.ImportParameters (pParams);
 		return pRsaKey.Encrypt (pData, false);
@@ -110,7 +113,7 @@ public static class Helper
 			}
 			if(pIsPrime)
 			{
-				for(Math.BigInteger q = 0; q < pPrimes.Count; q++)
+				for(int q = 0; q < pPrimes.Count; q++)
 				{
 					Math.BigInteger pProduct = pPrimes[q] * pNum;
 					if(pProduct == pOriginalNum)
@@ -119,9 +122,9 @@ public static class Helper
 					}
 				}
 				pPrimes.Insert(0, pNum);
-
 			}
 		}
+		return null;
 	}
 	public class PQPair
 	{
@@ -131,6 +134,105 @@ public static class Helper
 		{
 			this.P = pP;
 			this.Q = pQ;
+		}
+	}
+	public static byte[] Aes256IgeEncrypt(byte[] data, byte[] key, byte[] iv)
+	{
+		var iv1 = new byte[iv.Length/2];
+		var iv2 = new byte[iv.Length/2];
+		Array.Copy(iv, 0, iv1, 0, iv1.Length);
+		Array.Copy(iv, iv.Length/2, iv2, 0, iv2.Length);
+		
+		using (var aes = new AesCryptoServiceProvider())
+		{
+			aes.Mode = CipherMode.ECB;
+			aes.KeySize = key.Length*8;
+			aes.Padding = PaddingMode.None;
+			aes.IV = iv1;
+			aes.Key = key;
+			
+			int blockSize = aes.BlockSize/8;
+			
+			var xPrev = new byte[blockSize];
+			Buffer.BlockCopy(iv2, 0, xPrev, 0, blockSize);
+			var yPrev = new byte[blockSize];
+			Buffer.BlockCopy(iv1, 0, yPrev, 0, blockSize);
+			
+			using (var encrypted = new MemoryStream())
+			{
+				using (var bw = new BinaryWriter(encrypted))
+				{
+					var x = new byte[blockSize];
+					
+					ICryptoTransform encryptor = aes.CreateEncryptor();
+					
+					for (int i = 0; i < data.Length; i += blockSize)
+					{
+						Buffer.BlockCopy(data, i, x, 0, blockSize);
+						byte[] y = Xor(encryptor.TransformFinalBlock(Xor(x, yPrev), 0, blockSize), xPrev);
+						
+						Buffer.BlockCopy(x, 0, xPrev, 0, blockSize);
+						Buffer.BlockCopy(y, 0, yPrev, 0, blockSize);
+						
+						bw.Write(y);
+					}
+				}
+				return encrypted.ToArray();
+			}
+		}
+	}
+
+	public static byte[] Xor(byte[] pData0, byte[] pData1)
+	{
+		for (int x = 0; x < pData0.Length; x++) 
+		{
+			pData0[x] ^= pData1[x];
+		}
+		return pData0;
+	}
+
+	public static byte[] Aes256IgeDecrypt(byte[] encryptedData, byte[] key, byte[] iv)
+	{
+		var iv1 = new byte[iv.Length/2];
+		var iv2 = new byte[iv.Length/2];
+		Array.Copy(iv, 0, iv1, 0, iv1.Length);
+		Array.Copy(iv, iv.Length/2, iv2, 0, iv2.Length);
+		
+		using (var aes = new AesCryptoServiceProvider())
+		{
+			aes.Mode = CipherMode.ECB;
+			aes.KeySize = key.Length*8;
+			aes.Padding = PaddingMode.None;
+			aes.IV = iv1;
+			aes.Key = key;
+			
+			int blockSize = aes.BlockSize/8;
+			
+			var xPrev = new byte[blockSize];
+			Buffer.BlockCopy(iv1, 0, xPrev, 0, blockSize);
+			var yPrev = new byte[blockSize];
+			Buffer.BlockCopy(iv2, 0, yPrev, 0, blockSize);
+			
+			using (var decrypted = new MemoryStream())
+			{
+				using (var bw = new BinaryWriter(decrypted))
+				{
+					var x = new byte[blockSize];
+					ICryptoTransform decryptor = aes.CreateDecryptor();
+					
+					for (int i = 0; i < encryptedData.Length; i += blockSize)
+					{
+						Buffer.BlockCopy(encryptedData, i, x, 0, blockSize);
+						byte[] y = Xor(decryptor.TransformFinalBlock(Xor(x, yPrev), 0, blockSize), xPrev);
+						
+						Buffer.BlockCopy(x, 0, xPrev, 0, blockSize);
+						Buffer.BlockCopy(y, 0, yPrev, 0, blockSize);
+						
+						bw.Write(y);
+					}
+				}
+				return decrypted.ToArray();
+			}
 		}
 	}
 }
