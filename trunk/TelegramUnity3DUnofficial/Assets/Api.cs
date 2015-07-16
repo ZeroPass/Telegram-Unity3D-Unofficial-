@@ -6,33 +6,12 @@ public static class Api
 {
 	public class Auth
 	{
-		public class FCheckedPhone
-		{
-			public bool phoneRegistered = false;
-			public bool phoneInvited = false;
-		}
-
-		public class FSendCode
-		{
-			public bool phoneRegistered = false;
-			public string phoneCodeHash = "2dc02d2cda9e615c84";
-		}
-
-		public class FAuthorization
-		{
-			public string phoneNumber = "";
-			public string PhoneCodeHash = "";
-			public string PhoneCode = "";
-			public string FirstName = "";
-			public string LastName = "";
-		}
-
 		/// <summary>
 		/// Returns the system registration status of the phone number passed to it.
 		/// </summary>
 		/// <returns>The method returns an auth.CheckedPhone type object with information on whether an account with such a phone number has already been registered, as well as whether invitations were sent to this number (using the auth.sendInvites method).</returns>
 		/// <param name="PhoneNumber">Phone number in the international format</param>
-		public FCheckedPhone CheckPhone(string PhoneNumber)
+		public SharpTelegram.Schema.AuthCheckedPhone CheckPhone(string PhoneNumber)
 		{
 			return null;
 		}
@@ -45,7 +24,7 @@ public static class Api
 		/// <param name="apiId">Application identifier.</param>
 		/// <param name="apiHash">Application secret hash.</param>
 		/// <param name="langCode">Code for the language used on a client, ISO 639-1 standard Parameter added in layer 5.</param>
-		public FSendCode SendCode(string phoneNumber, int smsType, int apiId, string apiHash, string langCode)
+		public SharpTelegram.Schema.AuthSentCode SendCode(string phoneNumber, int smsType, int apiId, string apiHash, string langCode)
 		{
 			return null;
 		}
@@ -76,7 +55,7 @@ public static class Api
 		/// Registers a validated phone number in the system.
 		/// </summary>
 		/// <returns>Returns an auth.Authorization object with information about the new authorization.</returns>
-		public FAuthorization SignUp(string phoneNumber, string phoneCodeHash, string phoneCode, string firstName, string lastName)
+		public SharpTelegram.Schema.AuthAuthorization SignUp(string phoneNumber, string phoneCodeHash, string phoneCode, string firstName, string lastName)
 		{
 			return null;
 		}
@@ -88,7 +67,7 @@ public static class Api
 		/// <param name="phoneNumber">Phone number in the international format.</param>
 		/// <param name="phoneCodeHash">SMS-message ID..</param>
 		/// <param name="phoneCode">Valid numerical code from the SMS-message.</param>
-		public FAuthorization SignIn(string phoneNumber, string phoneCodeHash, string phoneCode)
+		public SharpTelegram.Schema.AuthAuthorization SignIn(string phoneNumber, string phoneCodeHash, string phoneCode)
 		{
 			return null;
 		}
@@ -240,7 +219,7 @@ public static class Api
 		/// <returns>Returns User object containing the updated current user profile.</returns>
 		/// <param name="NewFirstName">New first name.</param>
 		/// <param name="NewLastName">New last name.</param>
-		public FUser UpdateProfile(string NewFirstName, string NewLastName)
+		public SharpTelegram.Schema.IUser UpdateProfile(string NewFirstName, string NewLastName)
 		{
 			return null;
 		}
@@ -272,7 +251,7 @@ public static class Api
 		/// Returns extended user info by ID.
 		/// </summary>
 		/// <returns>Returns a UserFull object containing user info..</returns>
-		public Account.FUserFull GetFullUser()
+		public SharpTelegram.Schema.UserFull GetFullUser()
 		{
 			return null;
 		}
@@ -280,21 +259,11 @@ public static class Api
 
 	public class Contacts
 	{
-		public class FContactStatus
-		{
-			public int UserId;
-			public bool IsOnline;
-		}
-
-		public class FBlocked
-		{
-
-		}
 		/// <summary>
 		/// Returns the list of contact statuses.
 		/// </summary>
 		/// <returns>List<FContactStatus>.</returns>
-		public List<FContactStatus> GetStatuses()
+		public List<SharpTelegram.Schema.ContactStatus> GetStatuses()
 		{
 			return null;
 		}
@@ -341,7 +310,7 @@ public static class Api
 		/// <returns>Blocked user list.</returns>
 		/// <param name="Offset">Offset.</param>
 		/// <param name="Limit">Limit.</param>
-		public FBlocked GetBlocked(int Offset, int Limit)
+		public SharpTelegram.Schema.ContactBlocked GetBlocked(int Offset, int Limit)
 		{
 			return null;
 		}
@@ -349,19 +318,6 @@ public static class Api
 
 	public class Messages
 	{
-		public class FSentMessage
-		{
-			public int Id;
-			public int Date;
-			public int Pts;
-			public int Seq;
-		}
-
-		public class FMessages
-		{
-
-		}
-
 		private long SendMessageCount = 0;
 
 		/// <summary>
@@ -391,7 +347,7 @@ public static class Api
 		/// </summary>
 		/// <returns>The messages.</returns>
 		/// <param name="MessageIdList">Messages ids list.</param>
-		public FMessages GetMessages(List<int> MessageIdList)
+		public SharpTelegram.Schema.MessagesMessages GetMessages(List<int> MessageIdList)
 		{
 			return null;
 		}
@@ -404,7 +360,7 @@ public static class Api
 		/// <param name="Offset">Number of list elements to be skipped. As of Layer 15 this value is added to the one that was calculated from max_id. Negative values are also accepted..</param>
 		/// <param name="MaxId">If a positive value was transferred, the method will return only messages with IDs less than max_id.</param>
 		/// <param name="Limit">Number of list elements to be returned.</param>
-		public FMessages GetHistory(int UserId, int Offset, int MaxId, int Limit)
+		public SharpTelegram.Schema.MessagesMessages GetHistory(int UserId, int Offset, int MaxId, int Limit)
 		{
 			return null;
 		}
@@ -420,7 +376,61 @@ public static class Api
 		/// <param name="Offset">Number of list elements to be skipped.</param>
 		/// <param name="MaxId">If a positive value was transferred, the method will return only messages with IDs less than the set ones.</param>
 		/// <param name="Limit">Number of list elements to be returned.</param>
-		public FMessages Search(int UserId, string Query, int Filter, int MinDate, int MaxDate, int Offset, int MaxId, int Limit)
+		public SharpTelegram.Schema.MessagesMessages Search(int UserId, string Query, int Filter, int MinDate, int MaxDate, int Offset, int MaxId, int Limit)
+		{
+			return null;
+		}
+
+		/// <summary>
+		/// Marks message history as read.
+		/// </summary>
+		/// <param name="UserId">Target user or group.</param>
+		/// <param name="MaxId">If a positive value is passed, only messages with identifiers less or equal than the given one will be read.</param>
+		/// <param name="Offset">Offset.</param>
+		/// <param name="ReadContents">If set to <c>true</c> read contents.</param>
+		public SharpTelegram.Schema.MessagesAffectedHistory ReadHistory(int UserId, int MaxId, int Offset, bool ReadContents)
+		{
+			return null;
+		}
+
+		/// <summary>
+		/// Notifies the sender about the recipient having listened a voice message or watched a video.
+		/// </summary>
+		/// <returns>The method returns the list of successfully deleted messages in List<int>.</returns>
+		/// <param name="MessageIdsToCheck">Deletes messages by their identifiers.</param>
+		public List<int> ReadMessageContents(List<int> MessageIdsToCheck)
+		{
+			return null;
+		}
+
+		/// <summary>
+		/// Deletes messages by their identifiers.
+		/// </summary>
+		/// <returns>The messages.</returns>
+		/// <param name="MessageIdsToDelete">Message identifiers to delete.</param>
+		public List<int> DeleteMessages(List<int> MessageIdsToDelete)
+		{
+			return null;
+		}
+
+		/// <summary>
+		/// Confirms receipt of messages by a client, cancels PUSH-notification sending.
+		/// </summary>
+		/// <param name="MaxId">Maximum message ID available in a client.</param>
+		public List<int> ReceivedMessages(int MaxId)
+		{
+			return null;
+		}
+	}
+
+	public class Updates
+	{
+		public SharpTelegram.Schema.UpdatesState GetState()
+		{
+			return null;
+		}
+
+		public SharpTelegram.Schema.UpdatesDifference GetDifference(int Pts, int Date, int Qts)
 		{
 			return null;
 		}
