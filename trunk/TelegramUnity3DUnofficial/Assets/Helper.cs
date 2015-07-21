@@ -49,6 +49,38 @@ public static class Helper
 			throw new System.Exception("Data to set is too long");
 		}
 	}
+	public static byte[] CombineData(byte[] pData0, byte[] pData1)
+	{
+		int pLen = pData0.Length + pData1.Length;
+		byte[] pNewData = new byte[pLen];
+		for(int x = 0, i = 0; x < pLen; x++, i++)
+		{
+			if(pData0.Length == x)
+			{
+				pData0 = pData1;
+				i = 0;
+			}
+			pNewData[x] = pData0[i];
+		}
+		return pNewData;
+	}
+	public static byte[] AddDataPadding(byte[] pData, int pUntilIsDivisibleBy)
+	{
+		int pModulu = pData.Length % pUntilIsDivisibleBy;
+		if(pModulu != 0)
+		{
+			byte[] pPaddedData = new byte[pData.Length + pModulu];
+			for(int x = 0; x < pData.Length; x++)
+			{
+				pPaddedData[x] = pData[x];
+			}
+			return pPaddedData;
+		}
+		else
+		{
+			return pData;
+		}
+	}
 	public static byte[] GetData(byte[] pData, int pStart, int pLength)
 	{
 		int pEnd = pStart + pLength;
@@ -125,6 +157,17 @@ public static class Helper
 			}
 		}
 		return null;
+	}
+	public static bool IsPrime(Math.BigInteger pPotentialPrime)
+	{
+		for(Math.BigInteger x = pPotentialPrime / 2; x > 1; x--)
+		{
+			if(pPotentialPrime % x == 0)
+			{
+				return false;
+			}
+		}
+		return true;
 	}
 	public class PQPair
 	{

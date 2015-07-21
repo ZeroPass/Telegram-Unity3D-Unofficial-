@@ -26,7 +26,7 @@
 namespace SharpTelegram.Schema
 {
     using SharpTL;
-    //using System.Threading.Tasks;
+    using System.Threading.Tasks;
 
     // TL constructors.
 

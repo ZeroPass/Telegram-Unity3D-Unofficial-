@@ -314,6 +314,11 @@ public static class Api
 		{
 			return null;
 		}
+
+		public SharpTelegram.Schema.IContactsImportedContacts ImportContacts(List<SharpTelegram.Schema.ImportedContact> Contacts, bool Replace)
+		{
+
+		}
 	}
 
 	public class Messages

@@ -8,7 +8,7 @@ public class Authorization
 	private Math.BigInteger ClientNonce;
 	public bool StartDHExchange()
 	{
-		byte[] pAppIdData = BitConverter.GetBytes (pAppId);
+		byte[] pAppIdData = BitConverter.GetBytes (0x00);
 
 		// #1
 		byte[] pAuthRequest = new byte[40];
@@ -40,21 +40,26 @@ public class Authorization
 
 		// #3 pq decomposed to primes
 		Helper.PQPair pPqDecomposed = Helper.DecomposeToPrimeFactors (pPq);
-
+		Math.BigInteger pBottomLimit = 2 ^ 2047;
+		Math.BigInteger pTopLimit = 2 ^ 2048;
+		if(!(pBottomLimit < pPqDecomposed.P && pPqDecomposed < pTopLimit) || !Helper.IsPrime(pPqDecomposed.P) || !Helper.IsPrime((pPqDecomposed.P - 1) / 2))
+		{
+			return false;
+		}
 		// #4 client presents proof to server
 		byte[] pClientProofPlain = new byte[96];
 		Helper.SetData(ref pClientProofPlain, BitConverter.GetBytes(0x83c95aec), 0);
-		Helper.SetData (ref pClientProofPlain, pPq.getBytes(), 5); // 1 denoting byte, 3 padding at the end = length 12 (1 + 8 + 3)
-		Helper.SetData (ref pClientProofPlain, pPqDecomposed.P.getBytes(), 17); // 1 + 4 (p) + 3
-		Helper.SetData (ref pClientProofPlain, pPqDecomposed.Q.getBytes(), 25); // 1 + 4 (q) + 3
-		Helper.SetData (ref pClientProofPlain, pClientNonce, 32);
-		Helper.SetData (ref pClientProofPlain, pServerNonce.getBytes(), 48);
-		byte[] pClientProofNonce = Helper.RandomNum (256).getBytes (); // new nonce
-		Helper.SetData (ref pClientProofPlain, pClientProofNonce, 64);
+		Helper.SetData(ref pClientProofPlain, pPq.getBytes(), 5); // 1 denoting byte, 3 padding at the end = length 12 (1 + 8 + 3)
+		Helper.SetData(ref pClientProofPlain, pPqDecomposed.P.getBytes(), 17); // 1 + 4 (p) + 3
+		Helper.SetData(ref pClientProofPlain, pPqDecomposed.Q.getBytes(), 25); // 1 + 4 (q) + 3
+		Helper.SetData(ref pClientProofPlain, pClientNonce, 32);
+		Helper.SetData(ref pClientProofPlain, pServerNonce.getBytes(), 48);
+		byte[] pClientProofNewNonce = Helper.RandomNum (256).getBytes (); // new nonce new_nonce
+		Helper.SetData(ref pClientProofPlain, pClientProofNewNonce, 64);
 		byte[] pDataSha1 = Helper.GetSha1 (pClientProofPlain);
 		byte[] pClientProofEncrypted = new byte[255];
-		Helper.SetData (ref pClientProofEncrypted, pDataSha1, 0); // length 64
-		Helper.SetData (ref pClientProofEncrypted, pClientProofPlain, 64);
+		Helper.SetData(ref pClientProofEncrypted, pDataSha1, 0); // length 64
+		Helper.SetData(ref pClientProofEncrypted, pClientProofPlain, 64);
 		pClientProofEncrypted = Helper.GetEncryptedFromPublicRSA (pClientProofEncrypted, BitConverter.GetBytes(pFingerprints [0])); // length 256
 
 		// Request to Start Diffie-Hellman Key Exchange
@@ -64,12 +69,12 @@ public class Authorization
 		Helper.SetData(ref pHdExchange, BitConverter.GetBytes(pUnixStamp), 8); // message_id
 		Helper.SetData(ref pHdExchange, BitConverter.GetBytes(pHdExchange.Length), 16); // message_length
 		Helper.SetData(ref pHdExchange, BitConverter.GetBytes(0xd712e4be), 20); // req_DH_params
-		Helper.SetData (ref pHdExchange, pClientNonce, 24);
-		Helper.SetData (ref pHdExchange, pServerNonce.getBytes(), 40);
-		Helper.SetData (ref pHdExchange, BitConverter.GetBytes (pPqDecomposed.P.IntValue()), 56); // 1 + 4 (p) + 3
-		Helper.SetData (ref pHdExchange, BitConverter.GetBytes (pPqDecomposed.Q.IntValue()), 64); // 1 + 4 (q) + 3
-		Helper.SetData (ref pHdExchange, BitConverter.GetBytes(pFingerprints[0]), 72);
-		Helper.SetData (ref pHdExchange, pClientProofEncrypted, 80);
+		Helper.SetData(ref pHdExchange, pClientNonce, 24);
+		Helper.SetData(ref pHdExchange, pServerNonce.getBytes(), 40);
+		Helper.SetData(ref pHdExchange, BitConverter.GetBytes (pPqDecomposed.P.IntValue()), 56); // 1 + 4 (p) + 3
+		Helper.SetData(ref pHdExchange, BitConverter.GetBytes (pPqDecomposed.Q.IntValue()), 64); // 1 + 4 (q) + 3
+		Helper.SetData(ref pHdExchange, BitConverter.GetBytes(pFingerprints[0]), 72);
+		Helper.SetData(ref pHdExchange, pClientProofEncrypted, 80);
 
 		// #5 server response (DH OK - d0e8075c, DH FAILED - 79cb045d)
 		byte[] pServerProofResponse = new byte[652];
@@ -85,10 +90,103 @@ public class Authorization
 		pMessageLen = BitConverter.ToInt32 (pServerProofResponse, 16);
 		byte[] pClientNonceCheck = Helper.GetData (pServerProofResponse, 24, 16);
 		byte[] pServerNonceCheck = Helper.GetData (pServerProofResponse, 40, 16);
-		byte[] pEncryptedAnswer = Helper.GetData(pServerProofResponse, 56, 592);
+		byte[] pEncryptedAnswer = Helper.GetData(pServerProofResponse, 56, 596);
 
-		byte[] newNonceHash = Helper.GetData(Helper.GetSha1 (pClientProofNonce), 0, 16);
+		// decrypt answer
+		byte[] newNonceHash = Helper.GetData(Helper.GetSha1 (pClientProofNewNonce), 0, 16);
+		byte[] tmpAesKey = new byte[1024];
+		Helper.SetData(ref tmpAesKey, pClientProofNewNonce, 0);
+		Helper.SetData(ref tmpAesKey, pServerNonce.getBytes(), pClientProofNewNonce.Length);
+		Helper.SetData(ref tmpAesKey, pClientProofNewNonce, pClientProofNewNonce.Length + pServerNonce.dataLength);
+		Helper.SetData(ref tmpAesKey, pClientProofNewNonce, pClientProofNewNonce.Length + pServerNonce.dataLength + pClientProofNewNonce.Length);
+		byte[] pSha1ns = new byte[20];
+		byte[] pSha1sn = new byte[20];
+		byte[] pSha1nn = new byte[20];
 
+		pSha1ns = Helper.GetSha1 (Helper.GetData (tmpAesKey, 0, pClientProofNewNonce.Length + pServerNonce.dataLength));
+		pSha1sn = Helper.GetSha1 (Helper.GetData (tmpAesKey, pClientProofNewNonce.Length, pClientProofNewNonce.Length + pServerNonce.dataLength));
+		pSha1nn = Helper.GetSha1 (Helper.GetData (tmpAesKey, pClientProofNewNonce.Length + pServerNonce.dataLength, pClientProofNewNonce.Length + pClientProofNewNonce.Length));
+
+		byte[] pAesKey = new byte[32];
+		byte[] pAesIV = new byte[32];
+
+		Helper.SetData(ref pAesKey, pSha1ns, 0);
+		Helper.SetData(ref pAesKey, Helper.GetData (pSha1sn, 0, 12), 20);
+
+		Helper.SetData(ref pAesIV, Helper.GetData (pSha1sn, 12, 8), 0);
+		Helper.SetData(ref pAesIV, pSha1nn, 8);
+		Helper.SetData(ref pAesIV, Helper.GetData(pClientProofNewNonce, 0, 4), 28);
+
+		byte[] pDecryptedAnswer = Helper.Aes256IgeDecrypt(pEncryptedAnswer, pAesKey, pAesIV);
+		long pAuthKeyId2 = BitConverter.ToInt64 (pDecryptedAnswer, 0);
+		byte[] pOriginalClientNonce = Helper.GetData(pDecryptedAnswer, 4, 16);
+		byte[] pOriginalServerNonce = Helper.GetData (pDecryptedAnswer, 20, 16);
+		int pG = BitConverter.ToInt32(pDecryptedAnswer, 36);
+		Math.BigInteger pDhPrime = new Math.BigInteger(Helper.GetData(pDecryptedAnswer, 40, 260));
+		byte[] pGa = Helper.GetData(300, 260);
+		long pServerTime = BitConverter.ToInt32 (pDecryptedAnswer, 560);
+		bool pGCyclicSubgroup = (pPqDecomposed.P % 8 == 7 && pG == 2 || pPqDecomposed.P % 3 == 2 && pG == 3 || 
+		                        (pPqDecomposed.P % 5 == 1 || pPqDecomposed.P % 5 == 4) && pG == 5 ||
+		                        (pPqDecomposed.P % 24 == 19 || pPqDecomposed.P % 24 == 23 ) && pG == 6 ||
+		                         (pPqDecomposed.P % 7 == 3 || pPqDecomposed.P % 7 == 5 || pPqDecomposed.P % 7 == 6) && pG == 7);
+	
+		if(pDhPrime != pPqDecomposed.P || !pGCyclicSubgroup)
+		{
+			return false;
+		}
+
+		// #6 Random number b is computed
+		Math.BigInteger pB = new Math.BigInteger(Helper.RandomData (256));
+		Math.BigInteger pGb = (pG ^ pB) % pDhPrime;
+		Math.BigInteger pMinusOnePrime = pDhPrime - 1;
+		Math.BigInteger pBottomPrimeLimit = 2 ^ (2048 - 64);
+		Math.BigInteger pTopPrimeLimit = pDhPrime - pBottomPrimeLimit;
+		if(!(pG > 1 && pGa > 1 && pGb > 1 && pG < pMinusOnePrime && pGa < pMinusOnePrime && pGb < pMinusOnePrime &&
+		     (pGa > pBottomLimit && pGa < pTopPrimeLimit || pGa < pBottomLimit && pGa > pTopPrimeLimit) ||
+		     (pGb > pBottomLimit && pGb < pTopPrimeLimit || pGb < pBottomLimit && pGb > pTopPrimeLimit)))
+		{
+			return false;
+		}
+		byte[] pClientEncrypedData = new byte[336];
+		Helper.SetData(ref pClientEncrypedData, BitConverter.GetBytes ((int)0x6643b654));
+		Helper.SetData(ref pClientEncrypedData, pClientNonce, 4);
+		Helper.SetData(ref pClientEncrypedData, BitConverter.GetBytes(0L), 36);
+		Helper.SetData(ref pClientEncrypedData, pGb.getBytes(), 44);
+
+		int pDataWithHashLen = pClientEncrypedData.Length + 20;
+		pDataWithHashLen += pClientEncrypedData % 16; // must be divisible by 16
+		byte[] pDataWithHash = new byte[pDataWithHashLen];
+		Helper.SetData(ref pDataWithHash, Helper.GetSha1 (pClientEncrypedData), 0);
+		Helper.SetData(ref pDataWithHash, pClientEncrypedData, 20);
+		pClientEncrypedData = Helper.Aes256IgeEncrypt(pDataWithHash, pAesKey, pAesIV);
+
+		// request
+		byte[] pEncryptedRequest = new byte[396];
+		Helper.SetData(ref pEncryptedRequest, pAppIdData, 0);
+		Helper.SetData(ref pEncryptedRequest, BitConverter.GetBytes (Helper.TimeNowUnix ()), 8);
+		Helper.SetData(ref pEncryptedRequest, BitConverter.GetBytes(pEncryptedRequest.Length), 16);
+		Helper.SetData(ref pEncryptedRequest, BitConverter.GetBytes((int)0xf5045f1f), 20);
+		Helper.SetData(ref pEncryptedRequest, pOriginalClientNonce, 24);
+		Helper.SetData(ref pEncryptedRequest, pOriginalServerNonce, 40);
+		Helper.SetData(ref pEncryptedRequest, pClientEncrypedData, 56);
+
+		// #7 Computing auth_key using formula
+		Math.BigInteger pAuthKey = (pGa ^ pB) % pDhPrime;
+
+		// #8 this is done on the server side "The server checks whether there already is another key with the same auth_key_hash and responds in one of the following ways"
+		// byte[] pAuthKeyHash = Helper.GetData (Helper.GetSha1 (pAuthKey.getBytes ()), 0, 8);
+
+		// #9 DH key exchange complete
+		byte[] pAuthKeyAuxHash = Helper.GetData (Helper.GetSha1 (pAuthKey.getBytes ()), 8, 8);
+		byte[] pServerResponse = new byte[52];
+		int pGenStatus = BitConverter.ToInt32 (pServerResponse, 0);
+		byte[] pFirstClientNonce = Helper.GetData (pServerResponse, 4, 16);
+		byte[] pFirstServerNonce = Helper.GetData (pServerResponse, 20, 16);
+		byte[] pNewNonceHash123 = Helper.GetData (pServerResponse, 36, 16);
+		if (pGenStatus == 0x3bcbf734) 
+		{
+
+		}
 		return true;
 	}
 }
