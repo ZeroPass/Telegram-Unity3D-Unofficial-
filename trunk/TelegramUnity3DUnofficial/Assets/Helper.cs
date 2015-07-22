@@ -97,6 +97,20 @@ public static class Helper
 			return null;
 		}
 	}
+    public static bool DataEquals(byte[] pData0, byte[] pData1)
+    {
+        if(pData0 != null && pData1 != null && pData0.Length == pData1.Length)
+        {
+            for(int x = 0; x < pData0.Length; x++)
+            {
+                if(pData0[x] != pData1[x])
+                {
+                    return false;
+                }
+            }
+        }
+        return false;
+    }
 	public static byte[] GetSha1(byte[] pData)
 	{
 		using (var sha = new SHA1CryptoServiceProvider())

@@ -19,6 +19,20 @@ public class Authorization
 		this.pTcpClient = pClient;
 		this.StartDHExchange ();
 	}
+    private void CheckNonce(Math.BigInteger pNum0, Math.BigInteger pNum1)
+    {
+        if(pNum0 != pNum1)
+        {
+            throw new Exception("Invalid nonce");
+        }
+    }
+    public void CheckNonce(byte[] pNum0, byte[] pNum1)
+    {
+        if(!Helper.DataEquals(pNum0, pNum1))
+        {
+            throw new Exception("Invalid nonce");
+        }
+    }
 	public bool StartDHExchange()
 	{
 		byte[] pAppIdData = BitConverter.GetBytes (0x00);
@@ -31,6 +45,7 @@ public class Authorization
 		Helper.SetData(ref pAuthRequest, BitConverter.GetBytes((int)20), 16); // message length
 		Helper.SetData(ref pAuthRequest, BitConverter.GetBytes((int)60469778), 20); // message length
 		byte[] pClientNonce = Helper.RandomNum (128).getBytes ();
+        Math.BigInteger pClientNonceNum = new Math.BigInteger(pClientNonce);
 		Helper.SetData(ref pAuthRequest, pClientNonce, 24); // nonce
 
 		// #2
@@ -40,7 +55,9 @@ public class Authorization
 		int pMessageLen = BitConverter.ToInt32 (pResponse, 16);
 		int pResPQ = BitConverter.ToInt32 (pResponse, 20);
 		Math.BigInteger pNonce = new Math.BigInteger(Helper.GetData (pResponse, 24, 16));
-		Math.BigInteger pServerNonce = new Math.BigInteger(Helper.GetData (pResponse, 40, 16));
+        CheckNonce(pClientNonceNum, pNonce);
+        byte[] pServerNonceBytes = Helper.GetData(pResponse, 40, 16);
+        Math.BigInteger pServerNonce = new Math.BigInteger(pServerNonceBytes);
 		Math.BigInteger pPq = new Math.BigInteger(Helper.GetData (pResponse, 57, 8));
 		int pVector = BitConverter.ToInt32 (pResponse, 68);
 		int pCount = BitConverter.ToInt32 (pResponse, 72);
@@ -66,7 +83,7 @@ public class Authorization
 		Helper.SetData(ref pClientProofPlain, pPqDecomposed.Q.getBytes(), 25); // 1 + 4 (q) + 3
 		Helper.SetData(ref pClientProofPlain, pClientNonce, 32);
 		Helper.SetData(ref pClientProofPlain, pServerNonce.getBytes(), 48);
-		byte[] pClientProofNewNonce = Helper.RandomNum (256).getBytes (); // new nonce new_nonce
+		byte[] pClientProofNewNonce = Helper.RandomNum (256).getBytes (); // new nonce new_nonce newnonce
 		Helper.SetData(ref pClientProofPlain, pClientProofNewNonce, 64);
 		byte[] pDataSha1 = Helper.GetSha1 (pClientProofPlain);
 		byte[] pClientProofEncrypted = new byte[255];
@@ -102,6 +119,8 @@ public class Authorization
 		pMessageLen = BitConverter.ToInt32 (pServerProofResponse, 16);
 		byte[] pClientNonceCheck = Helper.GetData (pServerProofResponse, 24, 16);
 		byte[] pServerNonceCheck = Helper.GetData (pServerProofResponse, 40, 16);
+        CheckNonce(pClientNonce, pClientNonceCheck);
+        CheckNonce(pServerNonce, new Math.BigInteger(pServerNonceCheck));
 		byte[] pEncryptedAnswer = Helper.GetData(pServerProofResponse, 56, 596);
 
 		// decrypt answer
@@ -189,16 +208,27 @@ public class Authorization
 		// byte[] pAuthKeyHash = Helper.GetData (Helper.GetSha1 (pAuthKey.getBytes ()), 0, 8);
 
 		// #9 DH key exchange complete
-		byte[] pAuthKeyAuxHash = Helper.GetData (Helper.GetSha1 (pAuthKey.getBytes ()), 8, 8);
+		byte[] pAuthKeyAuxHash = Helper.GetData (Helper.GetSha1 (pAuthKey.getBytes ()), 0, 8); // 64 higher-order bits of SHA1(auth_key)
 		byte[] pServerResponse = pTcpClient.SendReceive(pEncryptedRequest); // new byte[52];
 		int pGenStatus = BitConverter.ToInt32 (pServerResponse, 0);
 		byte[] pFirstClientNonce = Helper.GetData (pServerResponse, 4, 16);
 		byte[] pFirstServerNonce = Helper.GetData (pServerResponse, 20, 16);
+        CheckNonce(pClientNonce, pFirstClientNonce);
+        CheckNonce(pServerNonceBytes, pFirstServerNonce);
 		byte[] pNewNonceHash123 = Helper.GetData (pServerResponse, 36, 16);
-		if (pGenStatus == 0x3bcbf734) 
+        byte[] pComputedNewNonceHash = ComputeNewNonceHash(pClientProofNewNonce, 1, pAuthKeyAuxHash);
+		if (pGenStatus != 0x3bcbf734 && !Helper.DataEquals(pNewNonceHash123, pComputedNewNonceHash)) 
 		{
-
+            return false;
 		}
 		return true;
 	}
+    private byte[] ComputeNewNonceHash(byte[] pNewNonce, byte pReplyNum, byte[] pAuthKeyAuxHash)
+    {
+        var pArr = new byte[33 + pAuthKeyAuxHash.Length];
+        Helper.SetData(ref pArr, pNewNonce, 9);
+        pArr[0] = pReplyNum;
+        Helper.SetData(ref pArr, pAuthKeyAuxHash, 1);
+        return Helper.GetData(Helper.GetSha1(pArr), 0, 16);
+    }
 }

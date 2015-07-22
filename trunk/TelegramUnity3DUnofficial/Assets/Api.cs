@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 
 public static class Api
-{/*
+{
 	public class Auth
 	{
 		/// <summary>
@@ -439,5 +439,5 @@ public static class Api
 		{
 			return null;
 		}
-	}*/
+	}
 }
