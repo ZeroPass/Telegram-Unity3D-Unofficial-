@@ -52,9 +52,10 @@ Slv8kg9qv1m6XHVQY3PnEw+QQtqSIXklHwIDAQAB
 	}
 	public MTProto()
 	{
+        RSACryptoServiceProvider pServerPublicKey = ServerInfo.ServerPublicKey;
 		IPEndPoint pEndPoint = new IPEndPoint (ServerInfo.ServerIp, ServerInfo.ServerPort);
 		pTcpClient = new TTCPClient (pEndPoint, null);
-		pAuthorization = new Authorization (pTcpClient);
+		pAuthorization = new Authorization (pTcpClient);       
 	}
 	public void Connect()
 	{
