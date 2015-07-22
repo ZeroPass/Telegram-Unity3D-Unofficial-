@@ -1,11 +1,24 @@
-using UnityEngine;
 using System.Collections;
 using System;
 
 public class Authorization 
 {
+	private TTCPClient pTcpClient = null;
 	private const long pAppId = 41190;
 	private Math.BigInteger ClientNonce;
+	private Math.BigInteger pAuthorizationKey = -1;
+	public byte[] AuthorizationKey
+	{
+		get
+		{
+			return pAuthorizationKey.getBytes();
+		}
+	}
+	public Authorization(TTCPClient pClient)
+	{
+		this.pTcpClient = pClient;
+		this.StartDHExchange ();
+	}
 	public bool StartDHExchange()
 	{
 		byte[] pAppIdData = BitConverter.GetBytes (0x00);
@@ -19,10 +32,9 @@ public class Authorization
 		Helper.SetData(ref pAuthRequest, BitConverter.GetBytes((int)60469778), 20); // message length
 		byte[] pClientNonce = Helper.RandomNum (128).getBytes ();
 		Helper.SetData(ref pAuthRequest, pClientNonce, 24); // nonce
-		// send
 
 		// #2
-		byte[] pResponse = new byte[84];
+		byte[] pResponse = pTcpClient.SendReceive (pAuthRequest);  // new byte[84];
 		long pAuthKeyId = BitConverter.ToInt64 (pResponse, 0);
 		long pMessageId = BitConverter.ToInt64 (pResponse, 8);
 		int pMessageLen = BitConverter.ToInt32 (pResponse, 16);
@@ -42,7 +54,7 @@ public class Authorization
 		Helper.PQPair pPqDecomposed = Helper.DecomposeToPrimeFactors (pPq);
 		Math.BigInteger pBottomLimit = 2 ^ 2047;
 		Math.BigInteger pTopLimit = 2 ^ 2048;
-		if(!(pBottomLimit < pPqDecomposed.P && pPqDecomposed < pTopLimit) || !Helper.IsPrime(pPqDecomposed.P) || !Helper.IsPrime((pPqDecomposed.P - 1) / 2))
+		if(!(pBottomLimit < pPqDecomposed.P && pPqDecomposed.P < pTopLimit) || !Helper.IsPrime(pPqDecomposed.P) || !Helper.IsPrime((pPqDecomposed.P - 1) / 2))
 		{
 			return false;
 		}
@@ -77,7 +89,7 @@ public class Authorization
 		Helper.SetData(ref pHdExchange, pClientProofEncrypted, 80);
 
 		// #5 server response (DH OK - d0e8075c, DH FAILED - 79cb045d)
-		byte[] pServerProofResponse = new byte[652];
+		byte[] pServerProofResponse = pTcpClient.SendReceive(pHdExchange); // new byte[652];
 		int pResponseState = BitConverter.ToInt32(pServerProofResponse, 20);
 
 		if(pResponseState == 0x79cb045d) // failed
@@ -123,7 +135,7 @@ public class Authorization
 		byte[] pOriginalServerNonce = Helper.GetData (pDecryptedAnswer, 20, 16);
 		int pG = BitConverter.ToInt32(pDecryptedAnswer, 36);
 		Math.BigInteger pDhPrime = new Math.BigInteger(Helper.GetData(pDecryptedAnswer, 40, 260));
-		byte[] pGa = Helper.GetData(300, 260);
+		Math.BigInteger pGa = new Math.BigInteger(Helper.GetData(pDecryptedAnswer, 300, 260));
 		long pServerTime = BitConverter.ToInt32 (pDecryptedAnswer, 560);
 		bool pGCyclicSubgroup = (pPqDecomposed.P % 8 == 7 && pG == 2 || pPqDecomposed.P % 3 == 2 && pG == 3 || 
 		                        (pPqDecomposed.P % 5 == 1 || pPqDecomposed.P % 5 == 4) && pG == 5 ||
@@ -148,13 +160,13 @@ public class Authorization
 			return false;
 		}
 		byte[] pClientEncrypedData = new byte[336];
-		Helper.SetData(ref pClientEncrypedData, BitConverter.GetBytes ((int)0x6643b654));
+		Helper.SetData(ref pClientEncrypedData, BitConverter.GetBytes ((int)0x6643b654), 0);
 		Helper.SetData(ref pClientEncrypedData, pClientNonce, 4);
 		Helper.SetData(ref pClientEncrypedData, BitConverter.GetBytes(0L), 36);
 		Helper.SetData(ref pClientEncrypedData, pGb.getBytes(), 44);
 
 		int pDataWithHashLen = pClientEncrypedData.Length + 20;
-		pDataWithHashLen += pClientEncrypedData % 16; // must be divisible by 16
+		pDataWithHashLen += pClientEncrypedData.Length % 16; // must be divisible by 16
 		byte[] pDataWithHash = new byte[pDataWithHashLen];
 		Helper.SetData(ref pDataWithHash, Helper.GetSha1 (pClientEncrypedData), 0);
 		Helper.SetData(ref pDataWithHash, pClientEncrypedData, 20);
@@ -165,20 +177,20 @@ public class Authorization
 		Helper.SetData(ref pEncryptedRequest, pAppIdData, 0);
 		Helper.SetData(ref pEncryptedRequest, BitConverter.GetBytes (Helper.TimeNowUnix ()), 8);
 		Helper.SetData(ref pEncryptedRequest, BitConverter.GetBytes(pEncryptedRequest.Length), 16);
-		Helper.SetData(ref pEncryptedRequest, BitConverter.GetBytes((int)0xf5045f1f), 20);
+		Helper.SetData(ref pEncryptedRequest, BitConverter.GetBytes((uint)0xf5045f1f), 20);
 		Helper.SetData(ref pEncryptedRequest, pOriginalClientNonce, 24);
 		Helper.SetData(ref pEncryptedRequest, pOriginalServerNonce, 40);
 		Helper.SetData(ref pEncryptedRequest, pClientEncrypedData, 56);
 
 		// #7 Computing auth_key using formula
 		Math.BigInteger pAuthKey = (pGa ^ pB) % pDhPrime;
-
+		this.pAuthorizationKey = pAuthKey;
 		// #8 this is done on the server side "The server checks whether there already is another key with the same auth_key_hash and responds in one of the following ways"
 		// byte[] pAuthKeyHash = Helper.GetData (Helper.GetSha1 (pAuthKey.getBytes ()), 0, 8);
 
 		// #9 DH key exchange complete
 		byte[] pAuthKeyAuxHash = Helper.GetData (Helper.GetSha1 (pAuthKey.getBytes ()), 8, 8);
-		byte[] pServerResponse = new byte[52];
+		byte[] pServerResponse = pTcpClient.SendReceive(pEncryptedRequest); // new byte[52];
 		int pGenStatus = BitConverter.ToInt32 (pServerResponse, 0);
 		byte[] pFirstClientNonce = Helper.GetData (pServerResponse, 4, 16);
 		byte[] pFirstServerNonce = Helper.GetData (pServerResponse, 20, 16);

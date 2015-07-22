@@ -1,5 +1,4 @@
-﻿using UnityEngine;
-using System.Collections;
+﻿using System.Collections;
 using System.Security.Cryptography;
 using System.Collections.Generic;
 using System;
@@ -37,7 +36,7 @@ public static class Helper
 	public static void SetData(ref byte[] pData, byte[] pDataToSet, int pStart)
 	{
 		int pEnd = pDataToSet.Length + pStart;
-		if(pEnd < pData.Length)
+		if(pEnd <= pData.Length)
 		{
 			for(int x = pStart, i  = 0; x < pEnd; x++, i++)
 			{
@@ -115,8 +114,8 @@ public static class Helper
 	}
 	private static TimeSpan UnixTimeSpan()
 	{
-		DateTime CetTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.Now, "UTC");
-		DateTime CetTimeStart = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "UTC");
+		DateTime CetTime = DateTime.Now.ToUniversalTime();
+		DateTime CetTimeStart = new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc);
 		return (CetTime - CetTimeStart);
 	}
 	public static Int64 TimeNowUnix()
@@ -185,7 +184,7 @@ public static class Helper
 		var iv2 = new byte[iv.Length/2];
 		Array.Copy(iv, 0, iv1, 0, iv1.Length);
 		Array.Copy(iv, iv.Length/2, iv2, 0, iv2.Length);
-		
+		/*
 		using (var aes = new AesCryptoServiceProvider())
 		{
 			aes.Mode = CipherMode.ECB;
@@ -222,7 +221,8 @@ public static class Helper
 				}
 				return encrypted.ToArray();
 			}
-		}
+		}*/
+		return null;
 	}
 
 	public static byte[] Xor(byte[] pData0, byte[] pData1)
@@ -240,7 +240,7 @@ public static class Helper
 		var iv2 = new byte[iv.Length/2];
 		Array.Copy(iv, 0, iv1, 0, iv1.Length);
 		Array.Copy(iv, iv.Length/2, iv2, 0, iv2.Length);
-		
+		/*
 		using (var aes = new AesCryptoServiceProvider())
 		{
 			aes.Mode = CipherMode.ECB;
@@ -276,6 +276,7 @@ public static class Helper
 				}
 				return decrypted.ToArray();
 			}
-		}
+		}*/
+		return null;
 	}
 }

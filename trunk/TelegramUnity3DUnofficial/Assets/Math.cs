@@ -1,5 +1,4 @@
-﻿using UnityEngine;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -3127,7 +3126,7 @@ public static class Math
 			}
 		}
 		
-		
+		/*
 		
 		public static void Main(string[] args)
 		{
@@ -3202,7 +3201,7 @@ public static class Math
 			//Console.WriteLine(System.Environment.TickCount - dwStart);
 			
 		}
-		
+		*/
 	}
 
 }
