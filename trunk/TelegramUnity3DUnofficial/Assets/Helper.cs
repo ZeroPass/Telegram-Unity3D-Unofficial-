@@ -118,14 +118,6 @@ public static class Helper
 			return sha.ComputeHash(pData, 0, pData.Length);
 		}
 	}
-	public static byte[] GetEncryptedFromPublicRSA(byte[] pData, byte[] pPublicKey)
-	{
-		RSACryptoServiceProvider pRsaKey = new RSACryptoServiceProvider (256);
-		RSAParameters pParams = new RSAParameters();
-		pParams.Modulus = pPublicKey;
-		pRsaKey.ImportParameters (pParams);
-		return pRsaKey.Encrypt (pData, false);
-	}
 	private static TimeSpan UnixTimeSpan()
 	{
 		DateTime CetTime = DateTime.Now.ToUniversalTime();

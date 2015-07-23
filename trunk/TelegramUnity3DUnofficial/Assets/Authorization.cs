@@ -61,10 +61,10 @@ public class Authorization
 		Math.BigInteger pPq = new Math.BigInteger(Helper.GetData (pResponse, 57, 8));
 		int pVector = BitConverter.ToInt32 (pResponse, 68);
 		int pCount = BitConverter.ToInt32 (pResponse, 72);
-		long[] pFingerprints = new long[pCount];
+		ulong[] pFingerprints = new ulong[pCount];
 		for(short x = 0; x < pCount; x++)
 		{
-			pFingerprints[x] = BitConverter.ToInt64(pResponse, 76 + x * 8);
+			pFingerprints[x] = BitConverter.ToUInt64(pResponse, 76 + x * 8);
 		}
 
 		// #3 pq decomposed to primes
@@ -89,7 +89,13 @@ public class Authorization
 		byte[] pClientProofEncrypted = new byte[255];
 		Helper.SetData(ref pClientProofEncrypted, pDataSha1, 0); // length 64
 		Helper.SetData(ref pClientProofEncrypted, pClientProofPlain, 64);
-		pClientProofEncrypted = Helper.GetEncryptedFromPublicRSA (pClientProofEncrypted, BitConverter.GetBytes(pFingerprints [0])); // length 256
+
+        MTProto.ServerInfo.PublicRSAKey pServerPublicKey = MTProto.ServerInfo.PublicKeys.GetKeyByFingerprint(pFingerprints[0]);
+        if(pServerPublicKey == null)
+        {
+            throw new Exception("Server public key not found");
+        }
+        pClientProofEncrypted = pServerPublicKey.Encrypt(pClientProofEncrypted); // length 256
 
 		// Request to Start Diffie-Hellman Key Exchange
 		byte[] pHdExchange = new byte[340];
