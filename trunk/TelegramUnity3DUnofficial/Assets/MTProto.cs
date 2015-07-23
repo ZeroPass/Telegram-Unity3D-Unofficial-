@@ -92,7 +92,7 @@ Slv8kg9qv1m6XHVQY3PnEw+QQtqSIXklHwIDAQAB
 				{
 					// 149.154.167.50:443 - production
 					// 149.154.167.40:443 - test
-					IPAddress.TryParse("149.154.167.50", out pServerIp);
+                    IPAddress.TryParse("149.154.167.40", out pServerIp);
 				}
 				return pServerIp;
 			}
@@ -107,7 +107,6 @@ Slv8kg9qv1m6XHVQY3PnEw+QQtqSIXklHwIDAQAB
 	}
 	public MTProto()
 	{
-        //RSACryptoServiceProvider pServerPublicKey = ServerInfo.ServerPublicKey;
 		IPEndPoint pEndPoint = new IPEndPoint (ServerInfo.ServerIp, ServerInfo.ServerPort);
 		pTcpClient = new TTCPClient (pEndPoint, null);
 		pAuthorization = new Authorization (pTcpClient);       
