@@ -35,7 +35,7 @@ public class Authorization
     }
 	public bool StartDHExchange()
 	{
-        byte[] pAppIdData = BitConverter.GetBytes(pAppId);
+        byte[] pAppIdData = BitConverter.GetBytes((long)0);
 
 		// #1
 		byte[] pAuthRequest = new byte[40];
@@ -43,13 +43,15 @@ public class Authorization
 		long pUnixStamp = Helper.TimeNowUnix ();
 		Helper.SetData(ref pAuthRequest, BitConverter.GetBytes(pUnixStamp), 8); // message_id
 		Helper.SetData(ref pAuthRequest, BitConverter.GetBytes((int)20), 16); // message length
-		Helper.SetData(ref pAuthRequest, BitConverter.GetBytes((int)60469778), 20); // message length
+		Helper.SetData(ref pAuthRequest, BitConverter.GetBytes((int)60469778), 20);
 		byte[] pClientNonce = Helper.RandomNum (128).getBytes ();
         Math.BigInteger pClientNonceNum = new Math.BigInteger(pClientNonce);
 		Helper.SetData(ref pAuthRequest, pClientNonce, 24); // nonce
 
 		// #2
-		byte[] pResponse = pTcpClient.SendReceive (pAuthRequest);  // new byte[84];
+		byte[] pResponse = pTcpClient.Send (pAuthRequest);  // new byte[84];
+        return true;
+
 		long pAuthKeyId = BitConverter.ToInt64 (pResponse, 0);
 		long pMessageId = BitConverter.ToInt64 (pResponse, 8);
 		int pMessageLen = BitConverter.ToInt32 (pResponse, 16);
