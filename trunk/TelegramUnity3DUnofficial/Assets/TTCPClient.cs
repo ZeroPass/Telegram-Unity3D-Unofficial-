@@ -71,7 +71,7 @@ public class TTCPClient {
                 //NetworkStream pStream = pClient.GetStream();
                 //pStream.Write(pData, 0, pData.Length);
 				//int pSendBytes = pClient.Client.Send(pData);
-				System.Threading.Thread.Sleep(5000);
+				//System.Threading.Thread.Sleep(5000);
 				
                 byte[] pReceivedData = new byte[2048];
                 /*

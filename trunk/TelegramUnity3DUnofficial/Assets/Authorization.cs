@@ -35,7 +35,7 @@ public class Authorization
     }
 	public bool StartDHExchange()
 	{
-		byte[] pAppIdData = BitConverter.GetBytes (0x00);
+        byte[] pAppIdData = BitConverter.GetBytes(pAppId);
 
 		// #1
 		byte[] pAuthRequest = new byte[40];
