@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System;
 using System.Threading;
+using System.Diagnostics;
 
 public class TTCPClient {
     private Thread pListeningThread = null;
@@ -34,8 +35,9 @@ public class TTCPClient {
         {
             if (pSendSocket.Available > 0) // if any data available to receive
             {
+                Debugger.Break(); // pauses execution when something is received
                 byte[] pData = new byte[2048];
-                pSendSocket.Receive(pData, pData.Length, SocketFlags.None); // debug breakpoint is set here, stops execution when something is received
+                pSendSocket.Receive(pData, pData.Length, SocketFlags.None);
             }
             else
             {
@@ -68,7 +70,7 @@ public class TTCPClient {
                 int pSendBytes = pSendSocket.Send(pData, pData.Length, SocketFlags.None);
                 byte[] pReceivedData = new byte[2048]; // dummy return, from sync receive
                 //pSendSocket.Receive(pReceivedData, SocketFlags.None);
-                Thread.Sleep(2000); // wait for async to receive, ListeningWorker() triggers a breakpoint if something gets received
+                Thread.Sleep(2000); // wait for async to receive, ListeningWorker() breaks program execution when received
 				return pReceivedData;
 			}
 			catch(WebException e)
