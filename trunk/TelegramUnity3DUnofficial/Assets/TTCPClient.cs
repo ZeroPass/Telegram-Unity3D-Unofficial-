@@ -7,22 +7,21 @@ using System.Threading;
 
 public class TTCPClient {
     private Thread pListeningThread = null;
-    private TcpListener pListener = null;
-	private TcpClient pClient;
     private Socket pSendSocket = null;
 	private IPEndPoint pEndPoint = null;
 	public RSACryptoServiceProvider PublicServerRsaKey = null;
-	private int pPackageSeqNum = 0;
+	private int pPackageSeqNum = 1;
     private bool pListen = true;
 	public TTCPClient(IPEndPoint pArgEndPoint, RSACryptoServiceProvider pPublicServerKey)
 	{
 		this.PublicServerRsaKey = pPublicServerKey;
-		this.pEndPoint = pArgEndPoint;
-        this.StartListening();
-		pClient = new TcpClient ();
-		pClient.ReceiveTimeout = 3000;
+		this.pEndPoint = pArgEndPoint;        
+        
         pSendSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        pSendSocket.ReceiveTimeout = 1000;
+        pSendSocket.SendTimeout = 1000;
 		this.ConnectNow ();
+        this.StartListening();
 	}
     private void StartListening()
     {
@@ -31,28 +30,28 @@ public class TTCPClient {
     }
     private void ListeningWorker()
     {
-      //  this.pListener = new TcpListener(IPAddress.Any, 443);
-      //  pListener.Start();
         while(pListen)
         {
-            if(pSendSocket.Available > 0)
+            if (pSendSocket.Available > 0) // if any data available to receive
             {
                 byte[] pData = new byte[2048];
-                pSendSocket.Receive(pData, pData.Length, SocketFlags.None);
+                pSendSocket.Receive(pData, pData.Length, SocketFlags.None); // debug breakpoint is set here, stops execution when something is received
             }
             else
             {
                 Thread.Sleep(10);
             }
-           /* Socket pConSocker = pListener.AcceptSocket();            
-            pConSocker.Receive(pData, pData.Length, SocketFlags.None);*/
+            if(!pSendSocket.Connected)
+            {
+                throw new Exception("Connection closed");
+            }
         }
     }
 	public void Send(byte[] pData)
 	{
 		if(ConnectNow ()) 
 		{
-			pClient.Client.Send(pData);
+			pSendSocket.Send(pData);
 		}
 	}
 	public byte[] SendReceive(byte[] pData)
@@ -67,22 +66,9 @@ public class TTCPClient {
 				}
 				PreparePackage(ref pData);
                 int pSendBytes = pSendSocket.Send(pData, pData.Length, SocketFlags.None);
-
-                //NetworkStream pStream = pClient.GetStream();
-                //pStream.Write(pData, 0, pData.Length);
-				//int pSendBytes = pClient.Client.Send(pData);
-				//System.Threading.Thread.Sleep(5000);
-				
-                byte[] pReceivedData = new byte[2048];
-                /*
-                for (short x = 0; pSendSocket.Available == 0 && x < 100; x++)
-                {                   
-                     Thread.Sleep(10);
-                }
-                 */
-                pSendSocket.Receive(pReceivedData, pReceivedData.Length, SocketFlags.None);//.Read(pData, 0, pData.Length);
-				//pClient.ReceiveBufferSize = pReceivedData.Length;
-				//int pReceivedBytes = pClient.Client.Receive(pReceivedData, pReceivedData.Length, SocketFlags.None);
+                byte[] pReceivedData = new byte[2048]; // dummy return, from sync receive
+                //pSendSocket.Receive(pReceivedData, SocketFlags.None);
+                Thread.Sleep(2000); // wait for async to receive, ListeningWorker() triggers a breakpoint if something gets received
 				return pReceivedData;
 			}
 			catch(WebException e)
@@ -95,10 +81,10 @@ public class TTCPClient {
 	private void PreparePackage(ref byte[] pData)
 	{
 		byte[] pReadyPackage = new byte[pData.Length + 12];
-		Helper.SetData (ref pReadyPackage, BitConverter.GetBytes (pData.Length), 0);
-		Helper.SetData (ref pReadyPackage, BitConverter.GetBytes (pPackageSeqNum++), 4);
-		Helper.SetData (ref pReadyPackage, pData, 8);
-		Helper.SetData (ref pReadyPackage, BitConverter.GetBytes (Crc32.Compute (pData)), pData.Length + 8);
+		Helper.SetData (ref pReadyPackage, BitConverter.GetBytes (pData.Length + 12), 0); // length
+		Helper.SetData (ref pReadyPackage, BitConverter.GetBytes (pPackageSeqNum++), 4); // sequence num. starting at 1
+		Helper.SetData (ref pReadyPackage, pData, 8); // actual data
+		Helper.SetData (ref pReadyPackage, BitConverter.GetBytes (Crc32.Compute (Helper.GetData(pReadyPackage, 0 , pReadyPackage.Length - 4))), pData.Length + 8); // crc32 of the whole package, with len & seq. num.
 		pData = pReadyPackage;
 	}
 	public bool ConnectNow()
