@@ -50,6 +50,7 @@ public class Authorization
 
 		// #2
 		byte[] pResponse = pTcpClient.Send (pAuthRequest);  // new byte[84];
+        System.Threading.Thread.Sleep(1500);
         return true;
 
 		long pAuthKeyId = BitConverter.ToInt64 (pResponse, 0);
@@ -114,7 +115,7 @@ public class Authorization
 		Helper.SetData(ref pHdExchange, pClientProofEncrypted, 80);
 
 		// #5 server response (DH OK - d0e8075c, DH FAILED - 79cb045d)
-		byte[] pServerProofResponse = pTcpClient.SendReceive(pHdExchange); // new byte[652];
+		byte[] pServerProofResponse = pTcpClient.Send(pHdExchange); // new byte[652];
 		int pResponseState = BitConverter.ToInt32(pServerProofResponse, 20);
 
 		if(pResponseState == 0x79cb045d) // failed
@@ -217,7 +218,7 @@ public class Authorization
 
 		// #9 DH key exchange complete
 		byte[] pAuthKeyAuxHash = Helper.GetData (Helper.GetSha1 (pAuthKey.getBytes ()), 0, 8); // 64 higher-order bits of SHA1(auth_key)
-		byte[] pServerResponse = pTcpClient.SendReceive(pEncryptedRequest); // new byte[52];
+		byte[] pServerResponse = pTcpClient.Send(pEncryptedRequest); // new byte[52];
 		int pGenStatus = BitConverter.ToInt32 (pServerResponse, 0);
 		byte[] pFirstClientNonce = Helper.GetData (pServerResponse, 4, 16);
 		byte[] pFirstServerNonce = Helper.GetData (pServerResponse, 20, 16);

@@ -12,14 +12,28 @@ public class TTCPClient {
     private Thread pListeningThread = null;
     private Thread pSendingThread = null;
     private object pSendingLock = new object();
+    private object pReceivingLock = new object();
     private List<byte[]> pDataToSend = new List<byte[]>();
+    private List<byte[]> pDataReceived = new List<byte[]>();
     private TcpClient pClient = null;
     private NetworkStream pClientStream = null;
 	private IPEndPoint pEndPoint = null;
 	public RSACryptoServiceProvider PublicServerRsaKey = null;
 	private int pPackageSeqNum = 1;
+    private uint ReceiveTimout = 1000;
+    private uint pSendDataSeq = 1;
     private bool pListen = true;
     private bool pSendingEnabled = true;
+    public class SendData
+    {
+        public uint SeqNum = 0;
+        public byte[] Data = null;
+        public SendData(byte[] pData, TTCPClient pClient)
+        {
+            this.Data = pData;
+            this.SeqNum = pClient.pSendDataSeq++;
+        }
+    }
 	public TTCPClient(IPEndPoint pArgEndPoint, RSACryptoServiceProvider pPublicServerKey)
 	{
 		this.PublicServerRsaKey = pPublicServerKey;
@@ -63,9 +77,13 @@ public class TTCPClient {
         byte[] pData = new byte[2048];
         while(pListen)
         {
-            if (pClientStream.DataAvailable)
+            if (pClientStream != null && pClientStream.DataAvailable)
             {
                 pClientStream.Read(pData, 0, pData.Length);
+                lock(pReceivingLock)
+                {
+                    pDataReceived.Add(pData);
+                }
                 Debugger.Break(); // pauses execution when something is received
             }
             else
@@ -85,9 +103,23 @@ public class TTCPClient {
             pDataToSend.Add(pData);
             Monitor.PulseAll(pSendingLock);
         }
+        for (uint x = (ReceiveTimout / 10); x > 0; x--)
+        {
+            if(pDataReceived.Count > 0)
+            {
+                lock (pReceivingLock)
+                {
+                    byte[] pReturn = pDataReceived[0];
+                    pDataReceived.RemoveAt(0);
+                    return pReturn;
+                }
+            }
+            Thread.Sleep(10);
+        }
+        throw new Exception("No data received, timeout.");
         return null;
 	}
-	public byte[] SendReceive(byte[] pData)
+	public void SendReceive(byte[] pData)
 	{
 		if(ConnectNow ()) 
 		{
@@ -99,17 +131,12 @@ public class TTCPClient {
 				}
 				PreparePackage(ref pData);
                 pClientStream.Write(pData, 0, pData.Length);
-                byte[] pReceivedData = new byte[2048]; // dummy return, from sync receive
-                //pSendSocket.Receive(pReceivedData, SocketFlags.None);
-               // Thread.Sleep(2000); // wait for async to receive, ListeningWorker() breaks program execution when received
-				return pReceivedData;
 			}
 			catch(WebException e)
 			{
 				//Debug.LogException(e);
 			}
 		}
-		return null;
 	}
 	private int PreparePackage(ref byte[] pData)
 	{
