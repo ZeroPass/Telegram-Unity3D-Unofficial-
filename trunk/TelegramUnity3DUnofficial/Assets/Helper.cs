@@ -125,18 +125,106 @@ public static class Helper
 		return (CetTime - CetTimeStart);
 	}
 	public static Int64 TimeNowUnix()
-	{
+	{        
 		TimeSpan span = UnixTimeSpan();
-		return Convert.ToInt64(System.Math.Floor(span.TotalSeconds));
+        return (Convert.ToInt64(System.Math.Floor(span.TotalMilliseconds)) << 32);
+		//return Convert.ToInt64(System.Math.Floor(span.TotalSeconds));
 	}
 	public static string RandomNumStr(int pBitLength)
 	{
 		return RandomNum (pBitLength).ToString ();
 	}
+    public static void Swap(ref ulong pNum1, ref ulong pNum2)
+    {
+        ulong pTmp = pNum1;
+        pNum1 = pNum2;
+        pNum2 = pTmp;
+    }
+    public static PQPair parsePQ(byte[] pqStr) 
+    {
+        if (pqStr.Length > 8)
+        {
+            return null;
+        }
+        PQPair pPair = new PQPair(0, 0);
+        byte[] pStr = new byte[4];
+        byte[] qStr = new byte[4];
+		UInt64 pq = 0, p, q;
+		for (UInt32 i = 0, l = (UInt32)pqStr.Length; i < l; ++i) 
+        {
+			pq <<= 8;
+			pq |= (UInt64)pqStr[i];
+		}
+
+		UInt64 pqSqrt = (UInt64)System.Math.Sqrt((double)pq), ySqr, y;
+        while (pqSqrt * pqSqrt > pq)
+        {
+            --pqSqrt;
+        }
+
+        while (pqSqrt * pqSqrt < pq)
+        {
+            ++pqSqrt;
+        }
+
+        for (ySqr = pqSqrt * pqSqrt - pq; ; ++pqSqrt, ySqr = pqSqrt * pqSqrt - pq) 
+        {
+			y = (UInt64)System.Math.Sqrt((double)ySqr);
+            while (y * y > ySqr)
+            {
+                --y;
+            }
+            while (y * y < ySqr)
+            {
+                ++y;
+            }
+            if (ySqr == 0 || y + pqSqrt >= pq)
+            {
+                return null;
+            }
+			if (y * y == ySqr)
+            {
+				p = pqSqrt + y;
+				q = (pqSqrt > y) ? (pqSqrt - y) : (y - pqSqrt);
+				break;
+			}
+		}
+
+        if (p > q)
+        {
+            Swap(ref p, ref q);
+        }
+        
+		for (UInt32 i = 0; i < 4; ++i)
+        {
+			pStr[3 - i] = (byte)(p & 0xFF);
+			p >>= 8;
+		}
+        pPair.P = new Math.BigInteger(pStr);
+		for (UInt32 i = 0; i < 4; ++i) 
+        {
+			qStr[3 - i] = (byte)(q & 0xFF);
+			q >>= 8;
+		}
+        pPair.Q = new Math.BigInteger(qStr);
+		return pPair;
+	}
+
+    public static Math.BigInteger GetPow2Number(int pPower)
+    {
+        byte[] pData = new byte[pPower];
+        for(int x = 0; x < pData.Length; x++)
+        {
+            pData[x] = 0xFF;
+        }
+        return new Math.BigInteger(pData);
+    }
+
 	public static PQPair DecomposeToPrimeFactors(Math.BigInteger pNum)
 	{
 		Math.BigInteger pOriginalNum = pNum;
 		List<Math.BigInteger> pPrimes = new List<Math.BigInteger> ();
+        pNum = pNum / 2;
 		for( ; pNum > 1; pNum--)
 		{
 			bool pIsPrime = true;

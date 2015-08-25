@@ -137,4 +137,9 @@ public class Crc32
 	{
 		return Compute(encoding.GetBytes(text));
 	}
+
+    public static bool IsValid(byte[] pDataToCheck, uint pDataCrc32)
+    {
+        return (Compute(pDataToCheck) == pDataCrc32);
+    }
 }

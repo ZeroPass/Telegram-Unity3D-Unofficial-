@@ -43,15 +43,13 @@ public class Authorization
 		long pUnixStamp = Helper.TimeNowUnix ();
 		Helper.SetData(ref pAuthRequest, BitConverter.GetBytes(pUnixStamp), 8); // message_id
 		Helper.SetData(ref pAuthRequest, BitConverter.GetBytes((int)20), 16); // message length
-		Helper.SetData(ref pAuthRequest, BitConverter.GetBytes((int)60469778), 20);
+		Helper.SetData(ref pAuthRequest, BitConverter.GetBytes((int)0x60469778), 20);
 		byte[] pClientNonce = Helper.RandomNum (128).getBytes ();
         Math.BigInteger pClientNonceNum = new Math.BigInteger(pClientNonce);
 		Helper.SetData(ref pAuthRequest, pClientNonce, 24); // nonce
 
 		// #2
 		byte[] pResponse = pTcpClient.Send (pAuthRequest);  // new byte[84];
-        System.Threading.Thread.Sleep(1500);
-        return true;
 
 		long pAuthKeyId = BitConverter.ToInt64 (pResponse, 0);
 		long pMessageId = BitConverter.ToInt64 (pResponse, 8);
@@ -71,13 +69,19 @@ public class Authorization
 		}
 
 		// #3 pq decomposed to primes
-		Helper.PQPair pPqDecomposed = Helper.DecomposeToPrimeFactors (pPq);
-		Math.BigInteger pBottomLimit = 2 ^ 2047;
-		Math.BigInteger pTopLimit = 2 ^ 2048;
-		if(!(pBottomLimit < pPqDecomposed.P && pPqDecomposed.P < pTopLimit) || !Helper.IsPrime(pPqDecomposed.P) || !Helper.IsPrime((pPqDecomposed.P - 1) / 2))
+		Helper.PQPair pPqDecomposed = Helper.parsePQ(pPq.getBytes()); //.DecomposeToPrimeFactors (pPq.getBytes());
+		Math.BigInteger pBottomLimit = Helper.GetPow2Number(2047);
+		Math.BigInteger pTopLimit = Helper.GetPow2Number(2048);
+        if(!pPqDecomposed.P.isProbablePrime() || !pPqDecomposed.Q.isProbablePrime())
+        {
+            return false;
+        }
+		/*
+        if(!(pBottomLimit < pPqDecomposed.P && pPqDecomposed.P < pTopLimit) || !Helper.IsPrime(pPqDecomposed.P) || !Helper.IsPrime((pPqDecomposed.P - 1) / 2))
 		{
 			return false;
 		}
+         */
 		// #4 client presents proof to server
 		byte[] pClientProofPlain = new byte[96];
 		Helper.SetData(ref pClientProofPlain, BitConverter.GetBytes(0x83c95aec), 0);

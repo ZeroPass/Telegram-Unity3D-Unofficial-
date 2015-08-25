@@ -13,25 +13,52 @@ public class TTCPClient {
     private Thread pSendingThread = null;
     private object pSendingLock = new object();
     private object pReceivingLock = new object();
-    private List<byte[]> pDataToSend = new List<byte[]>();
-    private List<byte[]> pDataReceived = new List<byte[]>();
+    private List<SendData> pDataToSend = new List<SendData>();
+    private List<ReceivedData> pDataReceived = new List<ReceivedData>();
     private TcpClient pClient = null;
     private NetworkStream pClientStream = null;
 	private IPEndPoint pEndPoint = null;
 	public RSACryptoServiceProvider PublicServerRsaKey = null;
-	private int pPackageSeqNum = 1;
+	private int pPackageSeqNum = 0;
     private uint ReceiveTimout = 1000;
-    private uint pSendDataSeq = 1;
     private bool pListen = true;
     private bool pSendingEnabled = true;
+    public class ReceivedData
+    {
+        public int Constructor;
+        public int MessageId;
+        public int Lenght;
+        public int SequenceNum = -1;
+        public byte[] DataContent;
+        private uint pCrc32;
+        private bool pDataValid = false;
+        public bool DataValid
+        {
+            get
+            {
+                return pDataValid;
+            }
+        }
+        public ReceivedData(byte[] pData)
+        {
+            this.pCrc32 = BitConverter.ToUInt32(pData, pData.Length - 4);
+            this.pDataValid = Crc32.IsValid(Helper.GetData(pData, 0, pData.Length - 4), this.pCrc32);
+            if (this.DataValid)
+            {
+                this.Lenght = BitConverter.ToInt32(pData, 0);
+                this.DataContent = Helper.GetData(pData, 8, pData.Length - 12);
+                this.SequenceNum = BitConverter.ToInt32(pData, 4);
+            }
+        }
+    }
     public class SendData
     {
-        public uint SeqNum = 0;
+        public int SeqNum = 0;
         public byte[] Data = null;
-        public SendData(byte[] pData, TTCPClient pClient)
+        public SendData(byte[] pData, int pPackageSeq)
         {
             this.Data = pData;
-            this.SeqNum = pClient.pSendDataSeq++;
+            this.SeqNum = pPackageSeq;
         }
     }
 	public TTCPClient(IPEndPoint pArgEndPoint, RSACryptoServiceProvider pPublicServerKey)
@@ -66,7 +93,7 @@ public class TTCPClient {
                 }
                 for (short x = 0; x < pDataToSend.Count; x++ )
                 {
-                    SendReceive(pDataToSend[x]);
+                    SendReceive(pDataToSend[x].Data);
                 }
                 pDataToSend.Clear();
             }
@@ -79,12 +106,11 @@ public class TTCPClient {
         {
             if (pClientStream != null && pClientStream.DataAvailable)
             {
-                pClientStream.Read(pData, 0, pData.Length);
+                int pLen = pClientStream.Read(pData, 0, pData.Length);
                 lock(pReceivingLock)
                 {
-                    pDataReceived.Add(pData);
-                }
-                Debugger.Break(); // pauses execution when something is received
+                    pDataReceived.Add(new ReceivedData(Helper.GetData(pData, 0, pLen)));
+                }                
             }
             else
             {
@@ -98,9 +124,11 @@ public class TTCPClient {
     }
 	public byte[] Send(byte[] pData)
 	{
+        SendData pSendData = null;
 		lock(pSendingLock)
         {
-            pDataToSend.Add(pData);
+            pSendData = PreparePackage(ref pData);
+            pDataToSend.Add(pSendData);
             Monitor.PulseAll(pSendingLock);
         }
         for (uint x = (ReceiveTimout / 10); x > 0; x--)
@@ -109,9 +137,15 @@ public class TTCPClient {
             {
                 lock (pReceivingLock)
                 {
-                    byte[] pReturn = pDataReceived[0];
-                    pDataReceived.RemoveAt(0);
-                    return pReturn;
+                    for (ushort y = 0; y < pDataReceived.Count; y++)
+                    {
+                        if (pDataReceived[y].SequenceNum == pSendData.SeqNum)
+                        {
+                            byte[] pReturn = pDataReceived[y].DataContent;
+                            pDataReceived.RemoveAt(y);
+                            return pReturn;
+                        }
+                    }
                 }
             }
             Thread.Sleep(10);
@@ -124,12 +158,7 @@ public class TTCPClient {
 		if(ConnectNow ()) 
 		{
 			try
-			{
-				if(PublicServerRsaKey != null)
-				{
-					pData = PublicServerRsaKey.Encrypt(pData, true);
-				}
-				PreparePackage(ref pData);
+			{				
                 pClientStream.Write(pData, 0, pData.Length);
 			}
 			catch(WebException e)
@@ -138,16 +167,20 @@ public class TTCPClient {
 			}
 		}
 	}
-	private int PreparePackage(ref byte[] pData)
+	private SendData PreparePackage(ref byte[] pData)
 	{
+        if (PublicServerRsaKey != null)
+        {
+            pData = PublicServerRsaKey.Encrypt(pData, true);
+        }        
         int pPackageSeq = pPackageSeqNum++;
 		byte[] pReadyPackage = new byte[pData.Length + 12];
-		Helper.SetData (ref pReadyPackage, BitConverter.GetBytes (pData.Length + 8), 0); // length
-        Helper.SetData(ref pReadyPackage, BitConverter.GetBytes(pPackageSeq), 4); // sequence num. starting at 1
+		Helper.SetData (ref pReadyPackage, BitConverter.GetBytes (pData.Length + 12), 0); // length
+        Helper.SetData(ref pReadyPackage, BitConverter.GetBytes(pPackageSeq), 4); // sequence num. starting at 0
 		Helper.SetData (ref pReadyPackage, pData, 8); // actual data
 		Helper.SetData (ref pReadyPackage, BitConverter.GetBytes (Crc32.Compute (Helper.GetData(pReadyPackage, 0 , pReadyPackage.Length - 4))), pData.Length + 8); // crc32 of the whole package, with len & seq. num.
 		pData = pReadyPackage;
-        return pPackageSeq;
+        return new SendData(pData, pPackageSeq);
 	}
 	public bool ConnectNow()
 	{

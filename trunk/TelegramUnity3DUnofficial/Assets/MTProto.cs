@@ -71,6 +71,7 @@ public class MTProto
             }
             public byte[] Encrypt(byte[] pData)
             {
+                //pData = new byte[12];
                 return pServerPublicKey.Encrypt(pData, false);
             }
         }
