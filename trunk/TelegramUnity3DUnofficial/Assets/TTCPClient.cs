@@ -20,7 +20,7 @@ public class TTCPClient {
 	private IPEndPoint pEndPoint = null;
 	public RSACryptoServiceProvider PublicServerRsaKey = null;
 	private int pPackageSeqNum = 0;
-    private uint ReceiveTimout = 1000;
+    private uint ReceiveTimout = 3000;
     private bool pListen = true;
     private bool pSendingEnabled = true;
     public class ReceivedData
@@ -29,7 +29,8 @@ public class TTCPClient {
         public int MessageId;
         public int Lenght;
         public int SequenceNum = -1;
-        public byte[] DataContent;
+        public byte[] DataBodyContent;
+        public byte[] DataFullContent;
         private uint pCrc32;
         private bool pDataValid = false;
         public bool DataValid
@@ -45,8 +46,9 @@ public class TTCPClient {
             this.pDataValid = Crc32.IsValid(Helper.GetData(pData, 0, pData.Length - 4), this.pCrc32);
             if (this.DataValid)
             {
+                this.DataFullContent = pData;
                 this.Lenght = BitConverter.ToInt32(pData, 0);
-                this.DataContent = Helper.GetData(pData, 8, pData.Length - 12);
+                this.DataBodyContent = Helper.GetData(pData, 8, pData.Length - 12);
                 this.SequenceNum = BitConverter.ToInt32(pData, 4);
             }
         }
@@ -122,7 +124,7 @@ public class TTCPClient {
             }
         }
     }
-	public byte[] Send(byte[] pData)
+    public ReceivedData Send(byte[] pData)
 	{
         SendData pSendData = null;
 		lock(pSendingLock)
@@ -141,9 +143,9 @@ public class TTCPClient {
                     {
                         if (pDataReceived[y].SequenceNum == pSendData.SeqNum)
                         {
-                            byte[] pReturn = pDataReceived[y].DataContent;
+                            ReceivedData pRecData = pDataReceived[y];
                             pDataReceived.RemoveAt(y);
-                            return pReturn;
+                            return pRecData;
                         }
                     }
                 }

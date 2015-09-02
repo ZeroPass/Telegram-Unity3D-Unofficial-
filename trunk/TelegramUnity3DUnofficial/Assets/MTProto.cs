@@ -72,7 +72,7 @@ public class MTProto
             public byte[] Encrypt(byte[] pData)
             {
                 //pData = new byte[12];
-                return pServerPublicKey.Encrypt(pData, false);
+                return pServerPublicKey.Encrypt(pData, true);
             }
         }
 		private static string pPublicKey = @"-----BEGIN RSA PUBLIC KEY-----

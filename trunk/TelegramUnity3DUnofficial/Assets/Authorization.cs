@@ -1,5 +1,6 @@
 using System.Collections;
 using System;
+using System.Collections.Generic;
 
 public class Authorization 
 {
@@ -49,7 +50,7 @@ public class Authorization
 		Helper.SetData(ref pAuthRequest, pClientNonce, 24); // nonce
 
 		// #2
-		byte[] pResponse = pTcpClient.Send (pAuthRequest);  // new byte[84];
+		byte[] pResponse = pTcpClient.Send (pAuthRequest).DataBodyContent;  // new byte[84];
 
 		long pAuthKeyId = BitConverter.ToInt64 (pResponse, 0);
 		long pMessageId = BitConverter.ToInt64 (pResponse, 8);
@@ -93,9 +94,9 @@ public class Authorization
 		byte[] pClientProofNewNonce = Helper.RandomNum (256).getBytes (); // new nonce new_nonce newnonce
 		Helper.SetData(ref pClientProofPlain, pClientProofNewNonce, 64);
 		byte[] pDataSha1 = Helper.GetSha1 (pClientProofPlain);
-		byte[] pClientProofEncrypted = new byte[255];
+		byte[] pClientProofEncrypted = new byte[116];
 		Helper.SetData(ref pClientProofEncrypted, pDataSha1, 0); // length 64
-		Helper.SetData(ref pClientProofEncrypted, pClientProofPlain, 64);
+		Helper.SetData(ref pClientProofEncrypted, pClientProofPlain, 20);
 
         MTProto.ServerInfo.PublicRSAKey pServerPublicKey = MTProto.ServerInfo.PublicKeys.GetKeyByFingerprint(pFingerprints[0]);
         if(pServerPublicKey == null)
@@ -107,21 +108,38 @@ public class Authorization
 		// Request to Start Diffie-Hellman Key Exchange
 		byte[] pHdExchange = new byte[340];
 		Helper.SetData(ref pHdExchange, pAppIdData, 0); // auth_key_id
-		pUnixStamp = Helper.TimeNowUnix ();
+        pUnixStamp = Helper.TimeNowUnix();
 		Helper.SetData(ref pHdExchange, BitConverter.GetBytes(pUnixStamp), 8); // message_id
-		Helper.SetData(ref pHdExchange, BitConverter.GetBytes(pHdExchange.Length), 16); // message_length
+        Helper.SetData(ref pHdExchange, BitConverter.GetBytes(pHdExchange.Length - 20), 16); // message_length = full length - 20 (for the header)
 		Helper.SetData(ref pHdExchange, BitConverter.GetBytes(0xd712e4be), 20); // req_DH_params
-		Helper.SetData(ref pHdExchange, pClientNonce, 24);
-		Helper.SetData(ref pHdExchange, pServerNonce.getBytes(), 40);
-		Helper.SetData(ref pHdExchange, BitConverter.GetBytes (pPqDecomposed.P.IntValue()), 56); // 1 + 4 (p) + 3
-		Helper.SetData(ref pHdExchange, BitConverter.GetBytes (pPqDecomposed.Q.IntValue()), 64); // 1 + 4 (q) + 3
-		Helper.SetData(ref pHdExchange, BitConverter.GetBytes(pFingerprints[0]), 72);
+		Helper.SetData(ref pHdExchange, pClientNonce, 24); // 16
+		Helper.SetData(ref pHdExchange, pServerNonce.getBytes(), 40); // 16
+
+        byte[] pPData = new byte[8];
+        pPData[0] = 4;
+        Helper.SetData(ref pPData, BitConverter.GetBytes (pPqDecomposed.P.IntValue()), 1);
+		Helper.SetData(ref pHdExchange, pPData, 56); // 1 + 4 (p) + 3
+
+        byte[] pQData = new byte[8];
+        pQData[0] = 4;
+        Helper.SetData(ref pQData, BitConverter.GetBytes(pPqDecomposed.Q.IntValue()), 1);
+        Helper.SetData(ref pHdExchange, pQData, 64); // 1 + 4 (q) + 3
+        byte[] pPublicKeyFingerprint = BitConverter.GetBytes(pFingerprints[0]);
+		Helper.SetData(ref pHdExchange, pPublicKeyFingerprint, 72);
 		Helper.SetData(ref pHdExchange, pClientProofEncrypted, 80);
 
 		// #5 server response (DH OK - d0e8075c, DH FAILED - 79cb045d)
-		byte[] pServerProofResponse = pTcpClient.Send(pHdExchange); // new byte[652];
-		int pResponseState = BitConverter.ToInt32(pServerProofResponse, 20);
+        TTCPClient.ReceivedData pResponse0 = pTcpClient.Send(pHdExchange); // new byte[652];
+        byte[] pServerProofResponse = pResponse0.DataBodyContent;
 
+        long pResponseBadKey = BitConverter.ToInt64(pServerProofResponse, 0);
+        bool pMayBeBadKey = (pResponseBadKey == -404); // can happen if you use invalid public server key for encyption
+        if(pMayBeBadKey || pResponse0.DataFullContent.Length != 652)
+        {
+            return false;
+        }
+
+		int pResponseState = BitConverter.ToInt32(pServerProofResponse, 20);
 		if(pResponseState == 0x79cb045d) // failed
 		{
 			return false;
@@ -222,7 +240,7 @@ public class Authorization
 
 		// #9 DH key exchange complete
 		byte[] pAuthKeyAuxHash = Helper.GetData (Helper.GetSha1 (pAuthKey.getBytes ()), 0, 8); // 64 higher-order bits of SHA1(auth_key)
-		byte[] pServerResponse = pTcpClient.Send(pEncryptedRequest); // new byte[52];
+		byte[] pServerResponse = pTcpClient.Send(pEncryptedRequest).DataBodyContent; // new byte[52];
 		int pGenStatus = BitConverter.ToInt32 (pServerResponse, 0);
 		byte[] pFirstClientNonce = Helper.GetData (pServerResponse, 4, 16);
 		byte[] pFirstServerNonce = Helper.GetData (pServerResponse, 20, 16);
