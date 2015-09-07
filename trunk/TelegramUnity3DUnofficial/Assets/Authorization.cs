@@ -132,9 +132,9 @@ public class Authorization
         TTCPClient.ReceivedData pResponse0 = pTcpClient.Send(pHdExchange); // new byte[652];
         byte[] pServerProofResponse = pResponse0.DataBodyContent;
 
-        long pResponseBadKey = BitConverter.ToInt64(pServerProofResponse, 0);
-        bool pMayBeBadKey = (pResponseBadKey == -404); // can happen if you use invalid public server key for encyption
-        if(pMayBeBadKey || pResponse0.DataFullContent.Length != 652)
+        // long pResponseBadKey = BitConverter.ToInt64(pServerProofResponse, 0);
+        // bool pMayBeBadKey = (pResponseBadKey == -404); // can happen if you use invalid public server key for encyption
+        if(pResponse0.DataFullContent.Length != 652)
         {
             return false;
         }
